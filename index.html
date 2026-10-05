@@ -232,7 +232,6 @@ nav .tabs { max-width: 520px; margin-inline: auto; display: grid; grid-template-
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 20px -10px rgba(0,0,0,.6); } }
 :root[data-theme="dark"] { --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 20px -10px rgba(0,0,0,.6); }
 body { background-image: linear-gradient(180deg, color-mix(in srgb, var(--accent) 7%, var(--bg)) 0, var(--bg) 220px); background-repeat: no-repeat; }
-.card, .phrase, .gauge-row, .lrow, .opt, .btn, .minor, .seg { transition: transform .12s ease, box-shadow .15s ease, background-color .15s ease, border-color .15s ease; }
 .card, .phrase, .gauge-row, .lrow { border-radius: var(--r); box-shadow: var(--shadow); border-color: color-mix(in srgb, var(--line) 70%, transparent); }
 .card { padding: 26px 20px; }
 .card .en { letter-spacing: .005em; }
@@ -253,10 +252,7 @@ body { background-image: linear-gradient(180deg, color-mix(in srgb, var(--accent
 .gauge .fill { border-radius: 999px; }
 .meta { letter-spacing: .02em; }
 .tag { font-weight: 600; }
-nav { backdrop-filter: saturate(1.4) blur(10px); -webkit-backdrop-filter: saturate(1.4) blur(10px); background: color-mix(in srgb, var(--surface) 92%, transparent); box-shadow: 0 -6px 18px -12px rgba(16,36,43,.25); }
-@keyframes fadein { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-#main > * { animation: fadein .25s ease both; }
-@media (prefers-reduced-motion: reduce) { #main > * { animation: none; } .card, .phrase, .btn, .chip { transition: none; } }
+nav { box-shadow: 0 -6px 18px -12px rgba(16,36,43,.25); }
 </style>
 
 <div class="scroller" id="scroller"><div class="wrap">
@@ -7754,8 +7750,9 @@ nav { backdrop-filter: saturate(1.4) blur(10px); -webkit-backdrop-filter: satura
   }
   function render() {
     var tabs = document.getElementById("tabs");
-    tabs.textContent = "";
-    TABS.forEach(function (t) {
+    if (tabs.children.length === TABS.length) {
+      Array.prototype.forEach.call(tabs.children, function (b, i) { b.setAttribute("aria-selected", String(S.tab === TABS[i][0])); });
+    } else TABS.forEach(function (t) {
       var b = h("button", { class: "tab", type: "button", role: "tab", "aria-selected": String(S.tab === t[0]), onclick: function () {
         if (S.tab !== t[0]) { lstop(); S.quiz = null; S.idx = 0; S.flipped = false; } S.tab = t[0]; S.confirmReset = false; render(); goTop();
       } });
