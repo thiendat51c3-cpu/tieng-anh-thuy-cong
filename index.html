@@ -6846,7 +6846,7 @@ nav .tabs { max-width: 520px; margin-inline: auto; display: grid; grid-template-
   try { ldone = JSON.parse(localStorage.getItem(LKEY) || "{}") || {}; } catch (e) { ldone = {}; }
   function lsave() { try { localStorage.setItem(LKEY, JSON.stringify(ldone)); } catch (e) {} }
   function lmark(id, k, v) { ldone[id] = ldone[id] || {}; if (k === "q" || k === "d") ldone[id][k] = Math.max(ldone[id][k] || 0, v); else ldone[id][k] = v; lsave(); if (prog.chk) { var t = dayNum(); prog.chk[t] = prog.chk[t] || {}; prog.chk[t].listen = 1; sv(GKEY, prog); } }
-  var LS = { id: null, mode: "listen", rate: 0.85, showEn: true, showVi: true, cur: -1, playing: false, token: 0, filter: "all", pod: false, els: [], playBtn: null, dict: null, qa: null };
+  var LS = { id: null, mode: "listen", rate: 0.85, showEn: true, showVi: true, cur: -1, playing: false, token: 0, filter: "comm", pod: false, els: [], playBtn: null, dict: null, qa: null };
   function lessonById(id) { return LESSONS.filter(function (x) { return x.id === id; })[0]; }
   function enVoices() { try { return window.speechSynthesis.getVoices().filter(function (v) { return /^en/i.test(v.lang); }); } catch (e) { return []; } }
   function voiceFor(sp) {
@@ -6902,14 +6902,15 @@ nav .tabs { max-width: 520px; margin-inline: auto; display: grid; grid-template-
   }
   function renderListenHome(root) {
     var chips = h("div", { class: "chips", role: "group", "aria-label": "Nhóm bài" });
-    [["all", "Tất cả (60)"], ["site", "Thi công (30)"], ["comm", "Giao tiếp (30)"]].forEach(function (it) {
+    [["comm", "Giao tiếp (30)"], ["site", "Thi công (30)"], ["pod", "Podcast (" + PODCASTS.length + ")"], ["all", "Tất cả (" + (LESSONS.length + PODCASTS.length) + ")"]].forEach(function (it) {
       chips.appendChild(h("button", { class: "chip", type: "button", "aria-pressed": String(LS.filter === it[0]), text: it[1], onclick: function () { LS.filter = it[0]; render(); } }));
     });
     root.appendChild(chips);
     var doneN = LESSONS.filter(function (x) { return ldone[x.id] && (ldone[x.id].l || ldone[x.id].q !== undefined || ldone[x.id].d !== undefined); }).length;
     root.appendChild(h("div", { class: "meta" }, [h("span", { text: "Đã nghe " + doneN + "/" + LESSONS.length + " bài" })]));
-    root.appendChild(h("div", { class: "note", style: "margin-top:0", text: "Mỗi bài có phụ đề chạy theo giọng đọc, chép chính tả từng câu và 3 câu hỏi hiểu bài. Giọng đọc là giọng tiếng Anh có sẵn trên điện thoại." }));
+    root.appendChild(h("div", { class: "note", style: "margin-top:0", text: "Mỗi bài có phụ đề chạy theo giọng đọc, chép chính tả 10 câu và 5 câu hỏi hiểu bài. Giọng đọc là giọng tiếng Anh có sẵn trên điện thoại." }));
     PODCASTS.forEach(function (pc, pi) {
+      if (LS.filter !== "all" && LS.filter !== "pod") return;
       root.appendChild(h("button", { class: "lrow pod", type: "button", onclick: function () { podSelect(pi); LS.pod = true; render(); goTop(); } }, [
         h("span", { class: "tag", text: "Podcast · nghe trước khi ngủ" }),
         h("b", { text: pc.title }),
@@ -6917,7 +6918,8 @@ nav .tabs { max-width: 520px; margin-inline: auto; display: grid; grid-template-
         h("span", { class: "lmeta", text: Math.round(pc.dur / 60) + " phút · 2 người dẫn · phụ đề chạy theo · hẹn giờ tắt" })
       ]));
     });
-    LESSONS.forEach(function (x) {
+    if (LS.filter === "pod") return;
+    LESSONS.slice().sort(function (a, b) { return (a.group === b.group) ? 0 : (a.group === "comm" ? -1 : 1); }).forEach(function (x) {
       if (LS.filter !== "all" && x.group !== LS.filter) return;
       var d = ldone[x.id] || {};
       var mark = (d.l || d.q !== undefined || d.d !== undefined) ? " ✓" : "";
