@@ -253,6 +253,50 @@ body { background-image: linear-gradient(180deg, color-mix(in srgb, var(--accent
 .meta { letter-spacing: .02em; }
 .tag { font-weight: 600; }
 nav { box-shadow: 0 -6px 18px -12px rgba(16,36,43,.25); }
+
+/* ---- gọn hóa v3 ---- */
+.contour { display: none !important; }
+header { padding-block: 8px 2px; }
+.logo { width: 28px; height: 28px; }
+.chips { margin: 4px -16px 8px; }
+.chip { min-height: 32px; padding: 5px 13px; }
+.bar { margin-bottom: 6px; }
+.lsel { appearance: none; -webkit-appearance: none; font: inherit; font-size: 14px; color: var(--fg); padding-right: 28px; background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23566B70' stroke-width='1.6'/%3E%3C/svg%3E") no-repeat right 11px center; max-width: 46%; font-weight: 600; }
+.meta { margin-bottom: 6px; }
+.meta .minor { min-height: 30px; padding: 3px 11px; }
+.card { min-height: clamp(200px, 32vh, 320px); padding: 20px 18px; }
+.row { margin-top: 8px; }
+.btn { min-height: 42px; padding: 7px 10px; }
+.opts { margin-top: 10px; gap: 8px; }
+.opt { padding: 10px 14px; min-height: 44px; }
+.q-en { font-size: 32px; }
+.phrase { padding: 10px 12px; gap: 4px; }
+.phrase + .phrase { margin-top: 8px; }
+.phrase .toggle { padding: 2px 0; }
+.topbar { gap: 8px; margin: 4px 0 6px; }
+.topbar .search { margin: 0; flex: 1; min-width: 0; padding: 7px 12px; min-height: 34px; }
+.topbar .seg { flex: none; }
+.lrow { padding: 8px 12px; margin-top: 6px; gap: 1px; }
+.lrow .ltop { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.lrow .ltop b { font-size: 15px; }
+.lrow .ltop .lmeta { white-space: nowrap; font-size: 11px; }
+.lrow .lvi { font-size: 13px; }
+.acc.sub { border: 0; border-top: 1px solid var(--line); border-radius: 0; background: none; margin-top: 0; padding: 0; }
+.acc.sub summary { font-weight: 500; padding: 9px 0; }
+.sec { margin-top: 14px; }
+.todayhd { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.todayhd .mono2 { font-family: var(--font-mono); font-size: 12px; color: var(--muted); font-weight: 400; }
+.task { padding: 8px 12px; margin-top: 6px; }
+.gauge-row { padding: 10px 12px; }
+.tiles { grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 6px; }
+.tile { min-height: 54px; padding: 6px 4px; }
+nav { padding-top: 2px; }
+.ptr { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.ptr .toggle { padding: 0; }
+.seg button { padding: 6px 10px; font-size: 13.5px; }
+.bar { flex-wrap: nowrap; }
+.bar .lsel { flex: 1 1 0; min-width: 0; max-width: none; }
+.bar .seg { flex: none; }
 </style>
 
 <div class="scroller" id="scroller"><div class="wrap">
@@ -6458,16 +6502,13 @@ nav { box-shadow: 0 -6px 18px -12px rgba(16,36,43,.25); }
     var n = Math.ceil(arr.length / LSZ), tot = [], kn = [];
     for (var i = 0; i <= n; i++) { tot[i] = 0; kn[i] = 0; }
     arr.forEach(function (w) { tot[w.les]++; if (known[w.en]) kn[w.les]++; });
-    var wrap = h("div", { class: "chips", role: "group", "aria-label": "Bài học" });
-    var cur = S[TK() + "L"];
-    wrap.appendChild(h("button", { class: "chip les", type: "button", "aria-pressed": String(cur === "all" || !cur), text: "Mọi bài", onclick: function () { S[TK() + "L"] = "all"; S.idx = 0; S.flipped = false; S.quiz = null; onChange(); } }));
-    for (var j = 1; j <= n; j++) {
-      (function (j) {
-        var done = kn[j] === tot[j];
-        wrap.appendChild(h("button", { class: "chip les" + (done ? " done" : ""), type: "button", "aria-pressed": String(cur === j), text: "Bài " + j + (done ? " ✓" : " · " + kn[j] + "/" + tot[j]), onclick: function () { S[TK() + "L"] = j; S.idx = 0; S.flipped = false; S.quiz = null; onChange(); } }));
-      })(j);
-    }
-    return wrap;
+    var cur = S[TK() + "L"]; if (!cur) cur = "all";
+    var sel = h("select", { class: "chip lsel", "aria-label": "Chọn bài" });
+    sel.appendChild(h("option", { value: "all", text: "Bài: Mọi bài" }));
+    for (var j = 1; j <= n; j++) sel.appendChild(h("option", { value: String(j), text: "Bài " + j + (kn[j] === tot[j] ? " ✓" : " · " + kn[j] + "/" + tot[j]) }));
+    sel.value = String(cur);
+    sel.addEventListener("change", function () { var v = sel.value; S[TK() + "L"] = v === "all" ? "all" : +v; S.idx = 0; S.flipped = false; S.quiz = null; onChange(); });
+    return sel;
   }
   function topicChips(onChange) {
     var wrap = h("div", { class: "chips", role: "group", "aria-label": "Chủ đề" });
@@ -6484,15 +6525,15 @@ nav { box-shadow: 0 -6px 18px -12px rgba(16,36,43,.25); }
   /* ---------- tab: thẻ từ vựng ---------- */
   function renderCards(root) {
     root.appendChild(topicChips(render));
-    var lc = lessonChips(render); if (lc) root.appendChild(lc);
+    var lc = lessonChips(render);
     var vs = h("div", { class: "seg", role: "group", "aria-label": "Chế độ xem" });
     [["card", "Thẻ"], ["list", "Danh sách"], ["quiz", "Kiểm tra"]].forEach(function (it) {
       vs.appendChild(h("button", { type: "button", "aria-pressed": String(S.cv === it[0]), text: it[1], onclick: function () { S.cv = it[0]; S.quiz = null; render(); } }));
     });
     var dueN = CW().filter(function (w) { return inScope(w) && isDue(w); }).length;
     var fmText = { all: "Tất cả thẻ", "new": "Chưa nhớ", due: "Cần ôn (" + dueN + ")" };
-    var barRight = S.cv === "card" ? h("button", { class: "minor", type: "button", "aria-pressed": String(S.fm !== "all"), text: fmText[S.fm], onclick: function () { S.fm = S.fm === "all" ? "new" : S.fm === "new" ? "due" : "all"; S.idx = 0; S.flipped = false; render(); } }) : null;
-    root.appendChild(h("div", { class: "bar" }, [vs, barRight]));
+    var fmBtn = S.cv === "card" ? h("button", { class: "minor", type: "button", "aria-pressed": String(S.fm !== "all"), text: fmText[S.fm], onclick: function () { S.fm = S.fm === "all" ? "new" : S.fm === "new" ? "due" : "all"; S.idx = 0; S.flipped = false; render(); } }) : null;
+    root.appendChild(h("div", { class: "bar" }, [vs, lc]));
     if (S.cv === "list") { renderWordList(root); return; }
     if (S.cv === "quiz") { renderQuiz(root); return; }
     var d = deck();
@@ -6500,8 +6541,8 @@ nav { box-shadow: 0 -6px 18px -12px rgba(16,36,43,.25); }
     var total = CW().filter(inScope).length;
 
     root.appendChild(h("div", { class: "meta" }, [
-      h("span", { text: d.length ? "Thẻ " + (S.idx + 1) + "/" + d.length : "0 thẻ" }),
-      h("span", { text: "Đã nhớ " + knownCount + "/" + total })
+      h("span", { text: (d.length ? "Thẻ " + (S.idx + 1) + "/" + d.length : "0 thẻ") + " · Nhớ " + knownCount + "/" + total }),
+      fmBtn
     ]));
 
     if (!d.length) {
@@ -6514,7 +6555,7 @@ nav { box-shadow: 0 -6px 18px -12px rgba(16,36,43,.25); }
     if (S.idx >= d.length) S.idx = 0;
     var w = d[S.idx];
 
-    var card = h("button", { class: "card", type: "button", style: "padding-top:62px", "aria-label": S.flipped ? "Lật về mặt tiếng Anh" : "Lật xem nghĩa tiếng Việt",
+    var card = h("button", { class: "card", type: "button", style: "padding-top:54px", "aria-label": S.flipped ? "Lật về mặt tiếng Anh" : "Lật xem nghĩa tiếng Việt",
       onclick: function () { S.flipped = !S.flipped; render(); } });
     card.appendChild(h("div", { class: "tag", text: CT()[w.topic] }));
     if (!S.flipped) {
@@ -6699,15 +6740,16 @@ nav { box-shadow: 0 -6px 18px -12px rgba(16,36,43,.25); }
 
   /* ---------- tab: mẫu câu (Thi công / Giao tiếp) ---------- */
   function norm(s) { return String(s).toLowerCase(); }
-  function renderPhraseList(root, tabKey, list, kinds) {
+  function renderPhraseList(root, tabKey, list, kinds, seg) {
     var count = {};
     list.forEach(function (p) { count[p[0]] = (count[p[0]] || 0) + 1; });
     var chips = h("div", { class: "chips", role: "group", "aria-label": "Tình huống" });
     Object.keys(kinds).map(function (k) { return [k, kinds[k] + " (" + (count[k] || 0) + ")"]; }).concat([["all", "Tất cả (" + list.length + ")"]]).forEach(function (it) {
       chips.appendChild(h("button", { class: "chip", type: "button", "aria-pressed": String(S.pk[tabKey] === it[0]), text: it[1], onclick: function () { S.pk[tabKey] = it[0]; S.pn[tabKey] = 40; render(); } }));
     });
+    var inp = h("input", { class: "search", type: "search", placeholder: "Tìm câu…", "aria-label": "Tìm câu", value: S.pq[tabKey] });
+    root.appendChild(h("div", { class: "bar topbar" }, [seg, inp]));
     root.appendChild(chips);
-    var inp = h("input", { class: "search", type: "search", placeholder: "Tìm câu (tiếng Anh hoặc tiếng Việt)", "aria-label": "Tìm câu", value: S.pq[tabKey] });
     inp.value = S.pq[tabKey];
     var listBox = h("div", {});
     var timer;
@@ -6715,7 +6757,6 @@ nav { box-shadow: 0 -6px 18px -12px rgba(16,36,43,.25); }
       clearTimeout(timer);
       timer = setTimeout(function () { S.pq[tabKey] = inp.value; S.pn[tabKey] = 40; fill(); }, 200);
     });
-    root.appendChild(inp);
     root.appendChild(listBox);
     function fill() {
       listBox.textContent = "";
@@ -6743,22 +6784,23 @@ nav { box-shadow: 0 -6px 18px -12px rgba(16,36,43,.25); }
     function paint() {
       box.textContent = "";
       var open = !!S.open[id];
-      box.appendChild(h("div", { class: "tag", text: kinds[p[0]] }));
+      box.appendChild(h("div", { class: "ptr" }, [
+        h("span", { class: "tag", text: kinds[p[0]] }),
+        h("button", { class: "toggle", type: "button", text: open ? "Ẩn nghĩa ▴" : "Xem nghĩa ▾", onclick: function () { S.open[id] = !open; paint(); } })
+      ]));
       box.appendChild(h("div", { class: "phrase-top" }, [h("div", { class: "text", text: p[1] }), speakerBtn(p[1], "Nghe câu")]));
       if (open) box.appendChild(h("div", { class: "vi", text: p[2] }));
-      box.appendChild(h("button", { class: "toggle", type: "button", style: "text-align:left", text: open ? "Ẩn nghĩa" : "Xem nghĩa tiếng Việt", onclick: function () { S.open[id] = !open; paint(); } }));
     }
     paint();
     return box;
   }
   function renderDaily(root) {
-    var seg = h("div", { class: "seg", role: "group", "aria-label": "Nhóm câu", style: "margin:6px 0 4px" });
-    [["daily", "Giao tiếp (" + COMMP.length + ")"], ["phrases", "Thi công (" + SITEP.length + ")"]].forEach(function (it) {
+    var seg = h("div", { class: "seg", role: "group", "aria-label": "Nhóm câu" });
+    [["daily", "Giao tiếp"], ["phrases", "Thi công"]].forEach(function (it) {
       seg.appendChild(h("button", { type: "button", "aria-pressed": String(S.pg === it[0]), text: it[1], onclick: function () { S.pg = it[0]; render(); } }));
     });
-    root.appendChild(seg);
-    if (S.pg === "phrases") renderPhraseList(root, "phrases", SITEP, SKINDS);
-    else renderPhraseList(root, "daily", COMMP, CKINDS);
+    if (S.pg === "phrases") renderPhraseList(root, "phrases", SITEP, SKINDS, seg);
+    else renderPhraseList(root, "daily", COMMP, CKINDS, seg);
   }
 
   /* ---------- tab: phát âm IPA ---------- */
@@ -6812,13 +6854,12 @@ nav { box-shadow: 0 -6px 18px -12px rgba(16,36,43,.25); }
   function soundBy(sym) { return PRON.sounds.filter(function (x) { return x.s === sym; })[0]; }
   function renderPron(root) {
     if (S.pr) { renderSound(root, soundBy(S.pr)); return; }
-    root.appendChild(h("div", { class: "tag", text: "Cách học phát âm" }));
+    var how = h("details", { class: "acc" }, [h("summary", { text: "Cách học phát âm (" + PRON.steps.length + " bước)" })]);
     PRON.steps.forEach(function (st, i) {
-      var d = h("details", { class: "acc" }, [h("summary", { text: (i + 1) + ". " + st[0] }), h("p", { text: st[1] })]);
-      if (i === 0) d.setAttribute("open", "");
-      root.appendChild(d);
+      how.appendChild(h("details", { class: "acc sub" }, [h("summary", { text: (i + 1) + ". " + st[0] }), h("p", { text: st[1] })]));
     });
-    root.appendChild(h("div", { class: "note", text: "Bảng dưới theo giọng Anh Mỹ. Bấm vào một âm để xem cách đọc, từ và câu luyện tập." }));
+    root.appendChild(how);
+    root.appendChild(h("div", { class: "note", style: "margin:8px 0 0", text: "Giọng Anh Mỹ. Bấm vào một âm để xem cách đọc và luyện tập." }));
     PRON.groups.forEach(function (g) {
       root.appendChild(h("h2", { class: "sec", text: g[1] }));
       root.appendChild(h("div", { class: "note", style: "margin-top:0", text: g[2] }));
@@ -6934,10 +6975,9 @@ nav { box-shadow: 0 -6px 18px -12px rgba(16,36,43,.25); }
     [["comm", "Giao tiếp (30)"], ["site", "Thi công (30)"], ["pod", "Podcast (" + PODCASTS.length + ")"], ["all", "Tất cả (" + (LESSONS.length + PODCASTS.length) + ")"]].forEach(function (it) {
       chips.appendChild(h("button", { class: "chip", type: "button", "aria-pressed": String(LS.filter === it[0]), text: it[1], onclick: function () { LS.filter = it[0]; render(); } }));
     });
-    root.appendChild(chips);
     var doneN = LESSONS.filter(function (x) { return ldone[x.id] && (ldone[x.id].l || ldone[x.id].q !== undefined || ldone[x.id].d !== undefined); }).length;
+    root.appendChild(chips);
     root.appendChild(h("div", { class: "meta" }, [h("span", { text: "Đã nghe " + doneN + "/" + LESSONS.length + " bài" })]));
-    root.appendChild(h("div", { class: "note", style: "margin-top:0", text: "Mỗi bài có phụ đề chạy theo giọng đọc, chép chính tả 10 câu và 5 câu hỏi hiểu bài. Giọng đọc là giọng tiếng Anh có sẵn trên điện thoại." }));
     PODCASTS.forEach(function (pc, pi) {
       if (LS.filter !== "all" && LS.filter !== "pod") return;
       root.appendChild(h("button", { class: "lrow pod", type: "button", onclick: function () { podSelect(pi); LS.pod = true; render(); goTop(); } }, [
@@ -6952,12 +6992,10 @@ nav { box-shadow: 0 -6px 18px -12px rgba(16,36,43,.25); }
       if (LS.filter !== "all" && x.group !== LS.filter) return;
       var d = ldone[x.id] || {};
       var mark = (d.l || d.q !== undefined || d.d !== undefined) ? " ✓" : "";
-      var meta = (x.type === "dialogue" ? "Hội thoại" : "Bài đọc") + " · " + x.lines.length + " câu" + (d.q !== undefined ? " · Hiểu bài " + d.q + "/" + (x.qs ? x.qs.length : 5) : "") + (d.d !== undefined ? " · Chép " + d.d + "%" : "");
+      var meta = (x.type === "dialogue" ? "Hội thoại" : "Bài đọc") + " " + x.lines.length + " câu" + (d.q !== undefined ? " · " + d.q + "/" + (x.qs ? x.qs.length : 5) : "") + (d.d !== undefined ? " · " + d.d + "%" : "");
       root.appendChild(h("button", { class: "lrow", type: "button", onclick: function () { openLesson(x.id); } }, [
-        h("span", { class: "tag", text: (x.group === "site" ? "Thi công" : "Giao tiếp") }),
-        h("b", { text: x.title + mark }),
-        h("span", { class: "lvi", text: x.vi }),
-        h("span", { class: "lmeta", text: meta })
+        h("span", { class: "ltop" }, [h("b", { text: x.title + mark }), h("span", { class: "lmeta", text: meta })]),
+        h("span", { class: "lvi", text: (LS.filter === "all" ? (x.group === "site" ? "Thi công · " : "Giao tiếp · ") : "") + x.vi })
       ]));
     });
   }
@@ -7545,12 +7583,8 @@ nav { box-shadow: 0 -6px 18px -12px rgba(16,36,43,.25); }
     var dueN = dueCount(WORDS) + dueCount(PHR), cu = curUnit();
     var tOld = dueN === 0 || rv >= pace.r, tNew = nw >= pace.n, tLis = !!chk.listen;
     var doneN = (tOld ? 1 : 0) + (tNew ? 1 : 0) + (tLis ? 1 : 0), todayN = prog.days[day] || 0;
-    root.appendChild(h("div", { class: "sec", style: "margin-top:6px", text: "Hôm nay · " + (cfg.mins || 15) + " phút" }));
+    root.appendChild(h("div", { class: "sec todayhd", style: "margin-top:6px" }, [h("span", { text: "Hôm nay · " + (cfg.mins || 15) + " phút" }), h("span", { class: "mono2", text: "🔥 " + streak() + " ngày · " + todayN + " lượt" })]));
     root.appendChild(gauge("Hoàn thành " + doneN + "/3 việc", doneN, 3));
-    root.appendChild(h("div", { class: "stat" }, [
-      h("div", {}, [h("b", { text: String(streak()) }), h("span", { text: "ngày học liên tiếp" })]),
-      h("div", {}, [h("b", { text: String(todayN) }), h("span", { text: "lượt học hôm nay" })])
-    ]));
     function task(ok, title, sub, btnText, fn) {
       var t = h("div", { class: "task" + (ok ? " ok" : "") }, [h("div", { class: "ck", text: ok ? "✓" : "" }), h("div", { class: "tx" }, [h("b", { text: title }), h("span", { text: sub })])]);
       if (btnText) t.appendChild(h("button", { class: "btn" + (ok ? "" : " primary"), type: "button", text: btnText, onclick: fn }));
