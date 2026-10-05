@@ -1,4 +1,4 @@
-var V = "atc-v2", A = "atc-audio";
+var V = "atc-v3", A = "atc-audio";
 var CORE = ["./", "index.html", "manifest.webmanifest", "icon-64.png", "icon-180.png", "icon-512.png"];
 self.addEventListener("install", function (e) { e.waitUntil(caches.open(V).then(function (c) { return c.addAll(CORE); }).then(function () { return self.skipWaiting(); })); });
 self.addEventListener("activate", function (e) { e.waitUntil(caches.keys().then(function (k) { return Promise.all(k.filter(function (x) { return x !== V && x !== A; }).map(function (x) { return caches.delete(x); })); }).then(function () { return self.clients.claim(); })); });
