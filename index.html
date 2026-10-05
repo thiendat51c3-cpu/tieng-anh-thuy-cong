@@ -6362,14 +6362,38 @@ nav .tabs { max-width: 520px; margin-inline: auto; display: grid; grid-template-
     clearTimeout(toastTimer);
     toastTimer = setTimeout(function () { t.hidden = true; }, 2200);
   }
+  /* iPhone: tiếng đọc (speechSynthesis) bị tắt khi gạt công tắc im lặng, chỉ ra tai nghe Bluetooth.
+     Phát một đoạn âm thanh im lặng bằng thẻ audio để chuyển sang chế độ "phát nhạc", rồi mới đọc. */
+  var SIL = null, silT = 0;
+  function silUri() {
+    var n = 4000, b = new Uint8Array(44 + n), dv = new DataView(b.buffer), i;
+    function w(o, t) { for (var k = 0; k < t.length; k++) b[o + k] = t.charCodeAt(k); }
+    w(0, "RIFF"); dv.setUint32(4, 36 + n, true); w(8, "WAVE"); w(12, "fmt "); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+    dv.setUint32(24, 8000, true); dv.setUint32(28, 8000, true); dv.setUint16(32, 1, true); dv.setUint16(34, 8, true); w(36, "data"); dv.setUint32(40, n, true);
+    for (i = 0; i < n; i++) b[44 + i] = 128;
+    var bin = ""; for (i = 0; i < b.length; i++) bin += String.fromCharCode(b[i]);
+    return "data:audio/wav;base64," + btoa(bin);
+  }
+  function audioUnlock() {
+    try { if (navigator.audioSession) navigator.audioSession.type = "playback"; } catch (e) {}
+    try {
+      if (!SIL) { SIL = new Audio(silUri()); SIL.loop = true; SIL.setAttribute("playsinline", ""); }
+      clearTimeout(silT);
+      var pr = SIL.play(); if (pr && pr.catch) pr.catch(function () {});
+    } catch (e) {}
+    try { window.speechSynthesis.resume(); } catch (e) {}
+  }
+  function audioRelease() { clearTimeout(silT); silT = setTimeout(function () { try { if (SIL) SIL.pause(); } catch (e) {} }, 4000); }
   var SPD = [{ r: 0.5, t: "Chậm" }, { r: 1, t: "Thường" }];
   function spdIdx() { var i = cfg.sp; return (i === 0 || i === 1) ? i : 1; }
   function speak(text, ri) {
     try {
       if (!("speechSynthesis" in window)) { toast("Thiết bị chưa hỗ trợ đọc to"); return; }
+      audioUnlock();
       window.speechSynthesis.cancel();
       var u = new SpeechSynthesisUtterance(String(text).replace(/\s*\([^)]*\)/g, ""));
       u.lang = "en-US"; u.rate = SPD[ri === 0 || ri === 1 ? ri : spdIdx()].r;
+      u.onend = audioRelease; u.onerror = audioRelease;
       window.speechSynthesis.speak(u);
     } catch (e) { toast("Không phát được âm thanh"); }
   }
@@ -6835,7 +6859,8 @@ nav .tabs { max-width: 520px; margin-inline: auto; display: grid; grid-template-
     var u = new SpeechSynthesisUtterance(text), vf = voiceFor(sp);
     u.lang = "en-US"; u.rate = LS.rate; u.pitch = vf.pitch;
     if (vf.voice) u.voice = vf.voice;
-    u.onend = onend; u.onerror = onend;
+    audioUnlock();
+    u.onend = function () { audioRelease(); if (onend) onend(); }; u.onerror = function () { audioRelease(); if (onend) onend(); };
     window.speechSynthesis.speak(u);
   }
   function lstop(keep) {
