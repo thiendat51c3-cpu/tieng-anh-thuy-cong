@@ -7842,6 +7842,12 @@ nav { padding-top: 2px; }
     ]);
     document.getElementById("main").appendChild(pop);
   }
+  document.getElementById("scroller").addEventListener("click", function (e) {
+    if (S.tab !== "read" || !RS.sel || RS.fin) return;
+    var t = e.target;
+    if (t.closest && (t.closest(".rw") || t.closest("#rdpop") || t.closest("button"))) return;
+    RS.sel = null; render();
+  });
   function renderRead(root) {
     if (RS.id) { RS.fin ? renderReadFin(root, readById(RS.id)) : renderReading(root, readById(RS.id)); return; }
     var nDone = READS.filter(function (r) { return RDS.done[r.id]; }).length, nSv = Object.keys(RDS.sv).length;
