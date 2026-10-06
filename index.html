@@ -318,6 +318,15 @@ nav { padding-top: 2px; }
 .rdb .rg { background: #3ED598; color: #06301f; }
 .rdb .ry { background: #FFD45E; color: #4a3400; }
 .rdb .on { opacity: .75; }
+
+.big2 { display: grid; gap: 2px; width: 100%; text-align: left; padding: 12px 16px; margin: 4px 0 2px; border-radius: 16px; }
+.big2 b { font-size: 18px; }
+.big2 span { font-size: 13px; font-weight: 400; opacity: .9; }
+.mcols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; align-items: start; }
+.mcol { display: grid; gap: 8px; }
+.mcol .opt { text-align: center; min-height: 48px; padding: 8px 6px; font-size: 15px; }
+.opt.sel { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, var(--surface)); }
+.opt:disabled { opacity: .85; }
 </style>
 
 <div class="scroller" id="scroller"><div class="wrap">
@@ -7466,7 +7475,7 @@ nav { padding-top: 2px; }
       if (s.kind === "review") { rate(it.w, ok); pinc("rv", 1); }
       else { if (!(it.w.en in s.res)) s.res[it.w.en] = true; if (!ok) s.res[it.w.en] = false; }
     }
-    if (!ok && !it.again) s.q.push({ m: it.m === "cloze" || it.m === "mcq" ? (typeable(it.w) ? "type" : "flip") : it.m, w: it.w, again: true });
+    if (!ok && !it.again) s.q.push({ m: it.m === "cloze" || it.m === "mcq" || it.m === "match" ? (typeable(it.w) ? "type" : "flip") : it.m, w: it.w, again: true });
   }
   function sesFinish() {
     var s = S.ses; if (!s || s.fin) return; s.fin = true;
@@ -7492,7 +7501,7 @@ nav { padding-top: 2px; }
     var it = s.q[s.i];
     body.appendChild(h("div", { class: "gauge", style: "height:8px;margin:12px 0 4px" }, [h("div", { class: "fill", style: "width:" + Math.round(s.i / s.q.length * 100) + "%" })]));
     body.appendChild(h("div", { class: "meta" }, [h("span", { text: "Bước " + (s.i + 1) + "/" + s.q.length }), h("span", { text: it.again ? "Làm lại câu sai" : "" })]));
-    ({ learn: stepLearn, type: stepType, flip: stepFlip, cloze: stepCloze, mcq: stepMcq })[it.m](body, it);
+    ({ learn: stepLearn, type: stepType, flip: stepFlip, cloze: stepCloze, mcq: stepMcq, dict: stepDict, match: stepMatch })[it.m](body, it);
   }
   function wcard(tag) { var c = h("div", { class: "card", style: "cursor:default;min-height:0" }); c.appendChild(h("div", { class: "tag", text: tag })); return c; }
   function nextBtn(body, label) { body.appendChild(h("div", { class: "row" }, [h("button", { class: "btn primary", type: "button", text: label || "Tiếp →", onclick: sesNext })])); }
@@ -7568,6 +7577,7 @@ nav { padding-top: 2px; }
     body.appendChild(c);
     var same = WORDS.filter(function (x) { return x.topic === w.topic && x.en !== w.en && x.pos === w.pos; });
     if (same.length < 3) same = WORDS.filter(function (x) { return x.topic === w.topic && x.en !== w.en; });
+    if (same.length < 3) same = WORDS.filter(function (x) { return x.en !== w.en && x.topic !== "mine"; });
     var opts = shuffle([w].concat(shuffle(same).slice(0, 3)));
     optsRow(body, it, opts, w, function (o) { return o.en.replace(/\s*\([^)]*\)/g, ""); }, function (ok) { c.firstChild.nextSibling.textContent = w.ex; speak(w.ex); });
   }
@@ -7794,6 +7804,170 @@ nav { padding-top: 2px; }
   document.addEventListener("dblclick", function (e) { e.preventDefault(); }, { passive: false });
 
   /* ---------- khung ứng dụng ---------- */
+  /* ---------- Từ mới: các cách học ---------- */
+  function mineList() { return Object.keys(RDS.sv).map(findCard).filter(Boolean); }
+  function mineStat(w) { return isDue(w) ? "due" : known[w.en] ? "known" : srs[w.en] ? "learn" : "new"; }
+  function pickMine(k, onlyDue) {
+    var all = mineList(), rank = { due: 0, "new": 1, learn: 2, known: 3 };
+    if (onlyDue) all = all.filter(isDue);
+    return shuffle(all).sort(function (a, b) { return rank[mineStat(a)] - rank[mineStat(b)]; }).slice(0, k);
+  }
+  function drill(title, q, W) {
+    if (!q.length) { toast("Chưa có từ để luyện"); return; }
+    startSession({ kind: "review", title: title, q: q, i: 0, res: {}, W: W || {}, all: WORDS.concat(PHR), fin: false, first: 0, firstOk: 0 });
+  }
+  function mineMatchQ(ws) {
+    var q = [];
+    for (var i = 0; i < ws.length; i += 5) { var ch = ws.slice(i, i + 5); if (ch.length >= 3) q.push({ m: "match", ws: ch, w: ch[0] }); else ch.forEach(function (w) { q.push({ m: typeable(w) ? "type" : "flip", w: w }); }); }
+    return q;
+  }
+  function mineMethod(id) {
+    var all = mineList();
+    if (all.length < 1) { toast("Chưa có từ nào. Hãy đọc bài và bấm “Học” ở từ lạ."); return; }
+    var ws;
+    if (id === "mix") {
+      ws = pickMine(8); var q = [];
+      ws.filter(unseen).forEach(function (w) { q.push({ m: "learn", w: w }); });
+      var modes = ["type", "cloze", "dict", "mcq"];
+      shuffle(ws).forEach(function (w, i) {
+        var m = modes[i % 4];
+        if (m === "cloze" && !canCloze(w)) m = "dict";
+        if (m === "type" && !typeable(w)) m = "flip";
+        q.push({ m: m, w: w });
+      });
+      mineMatchQ(shuffle(ws)).forEach(function (x) { q.push(x); });
+      drill("Học thông minh", q);
+    } else if (id === "learn") {
+      ws = all.filter(unseen).slice(0, 10);
+      if (!ws.length) { toast("Không còn từ mới chưa học. Thử “Học thông minh” hoặc “Ôn theo lịch”."); return; }
+      startLearn(ws, "Học từ mới đã lưu");
+    } else if (id === "review") {
+      ws = pickMine(15, true);
+      if (!ws.length) { toast("Chưa có từ nào đến hạn ôn. Quay lại sau nhé."); return; }
+      drill("Ôn theo lịch", ws.map(function (w) { return { m: typeable(w) ? "type" : "flip", w: w }; }));
+    } else if (id === "match") {
+      if (all.length < 3) { toast("Cần lưu ít nhất 3 từ để ghép cặp"); return; }
+      drill("Ghép từ với nghĩa", mineMatchQ(pickMine(10)));
+    } else if (id === "dict") {
+      drill("Nghe và gõ", pickMine(10).map(function (w) { return { m: "dict", w: w }; }));
+    } else if (id === "cloze") {
+      ws = pickMine(10).filter(canCloze);
+      if (!ws.length) { toast("Các từ đã lưu chưa có câu phù hợp để điền"); return; }
+      drill("Điền vào câu", ws.map(function (w) { return { m: "cloze", w: w }; }));
+    } else if (id === "mcq") {
+      drill("Chọn nghĩa đúng", pickMine(10).map(function (w) { return { m: "mcq", w: w }; }));
+    }
+  }
+  function stepDict(body, it) {
+    var w = it.w, c = wcard("Nghe và gõ lại từ");
+    c.appendChild(h("div", { class: "hint", text: "Bấm loa để nghe, rồi gõ từ bạn nghe được" }));
+    c.appendChild(speakerBtn(w.en, "Nghe từ")); body.appendChild(c);
+    var inp = h("input", { class: "sesin", type: "text", autocomplete: "off", autocapitalize: "none", autocorrect: "off", spellcheck: "false", placeholder: "Gõ từ tiếng Anh", "aria-label": "Gõ từ nghe được" });
+    body.appendChild(inp);
+    var fb = h("div", {}), done = false;
+    function finish(ok, msg) {
+      if (done) return; done = true; inp.disabled = true; sesAnswer(ok, it); fb.textContent = "";
+      fb.appendChild(h("div", { class: "fb " + (ok ? "good" : "bad") }, [h("b", { text: msg }), h("div", { class: "ex", text: w.en + " " + w.ipa + " · " + w.vi }), h("div", { class: "exvi", text: w.ex })]));
+      acts.textContent = ""; acts.appendChild(h("button", { class: "btn primary", type: "button", text: "Tiếp →", onclick: sesNext }));
+    }
+    function check() { var r = checkTyped(inp.value, w); if (!inp.value.trim()) { toast("Hãy gõ từ trước"); return; } if (r === 2) finish(true, "Đúng!"); else if (r === 1) finish(true, "Gần đúng. Viết chuẩn là:"); else finish(false, "Chưa đúng. Đáp án là:"); }
+    var acts = h("div", { class: "row" }, [
+      h("button", { class: "btn", type: "button", text: "Không nghe ra", onclick: function () { finish(false, "Đáp án là:"); } }),
+      h("button", { class: "btn primary", type: "button", text: "Kiểm tra", onclick: check })
+    ]);
+    body.appendChild(acts); body.appendChild(fb);
+    inp.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); if (!done) check(); else sesNext(); } });
+    setTimeout(function () { speak(w.en); }, 250);
+  }
+  function stepMatch(body, it) {
+    var c = wcard("Ghép từ với nghĩa"); c.appendChild(h("div", { class: "hint", text: "Chạm một từ bên trái, rồi chạm nghĩa của nó bên phải" }));
+    body.appendChild(c);
+    var A = shuffle(it.ws.slice()), B = shuffle(it.ws.slice()), selA = null, selB = null, left = it.ws.length, wrong = {};
+    var colA = h("div", { class: "mcol" }), colB = h("div", { class: "mcol" }), btnA = {}, btnB = {};
+    function judge() {
+      if (!selA || !selB) return;
+      var a = selA, b = selB; selA = null; selB = null;
+      if (a === b) {
+        [btnA[a.en], btnB[a.en]].forEach(function (el) { el.classList.remove("sel"); el.classList.add("right"); el.disabled = true; });
+        sesAnswer(!wrong[a.en], { w: a, m: "match" }); speak(a.en);
+        if (--left === 0) nextBtn(body);
+      } else {
+        wrong[a.en] = 1; wrong[b.en] = 1;
+        [btnA[a.en], btnB[b.en]].forEach(function (el) { el.classList.remove("sel"); el.classList.add("wrong"); });
+        setTimeout(function () { [btnA[a.en], btnB[b.en]].forEach(function (el) { el.classList.remove("wrong"); }); }, 600);
+      }
+    }
+    A.forEach(function (w) {
+      var b = h("button", { class: "opt", type: "button", text: w.en.replace(/\s*\([^)]*\)/g, "") });
+      b.addEventListener("click", function () { if (selA) btnA[selA.en].classList.remove("sel"); selA = w; b.classList.add("sel"); speak(w.en); judge(); });
+      btnA[w.en] = b; colA.appendChild(b);
+    });
+    B.forEach(function (w) {
+      var b = h("button", { class: "opt", type: "button", text: w.vi });
+      b.addEventListener("click", function () { if (selB) btnB[selB.en].classList.remove("sel"); selB = w; b.classList.add("sel"); judge(); });
+      btnB[w.en] = b; colB.appendChild(b);
+    });
+    body.appendChild(h("div", { class: "mcols" }, [colA, colB]));
+  }
+  var MINE_METHODS = [
+    ["learn", "Học từ mới", "Nghe, đọc theo, gõ lại và điền câu"],
+    ["review", "Ôn theo lịch", "Ôn đúng lúc sắp quên (sau 1, 3, 7, 14, 30 ngày)"],
+    ["match", "Ghép từ với nghĩa", "Nối từ với nghĩa, nhanh và vui"],
+    ["dict", "Nghe và gõ", "Nghe từ rồi gõ lại: luyện tai và chính tả"],
+    ["cloze", "Điền vào câu", "Chọn từ đúng cho chỗ trống, học qua ngữ cảnh"],
+    ["mcq", "Chọn nghĩa đúng", "Trắc nghiệm nhanh"]
+  ];
+  function removeMine(w) {
+    delete RDS.sv[w.en.toLowerCase()]; rdSave();
+    var i = -1; MYW.forEach(function (o, k) { if (o.en === w.en) i = k; });
+    if (i >= 0) {
+      MYW.splice(i, 1); sv(MYK, MYW);
+      WORDS.splice(WORDS.indexOf(w), 1); delete srs[w.en]; delete known[w.en]; sv(SKEY, srs); save();
+      var c = 0; WORDS.forEach(function (x) { if (x.topic === "mine") { x.les = Math.floor(c / LSZ) + 1; c++; } });
+      if (!MYW.length) { delete TOPICS.mine; if (S.topic === "mine") S.topic = "talk"; }
+    }
+  }
+  function renderMineWords(root) {
+    var all = mineList(), st = { due: 0, "new": 0, learn: 0, known: 0 };
+    all.forEach(function (w) { st[mineStat(w)]++; });
+    root.appendChild(h("div", { class: "stat" }, [
+      h("div", {}, [h("b", { text: String(all.length) }), h("span", { text: "từ đã lưu" })]),
+      h("div", {}, [h("b", { text: String(st.due + st["new"]) }), h("span", { text: "cần học hoặc ôn hôm nay" })]),
+      h("div", {}, [h("b", { text: String(st.known) }), h("span", { text: "đã nhớ" })])
+    ]));
+    if (!all.length) {
+      root.appendChild(h("div", { class: "note", text: "Chưa có từ nào. Mở một bài đọc, chạm vào từ lạ rồi bấm “Học”. Các từ đó sẽ nằm ở đây để bạn luyện." }));
+      return;
+    }
+    root.appendChild(h("button", { class: "btn primary big2", type: "button", onclick: function () { mineMethod("mix"); } }, [
+      h("b", { text: "Học thông minh" }), h("span", { text: "Trộn nhiều cách: nghe, gõ, điền câu, ghép cặp · khoảng 5 phút" })
+    ]));
+    root.appendChild(h("div", { class: "sec", text: "Chọn cách học" }));
+    MINE_METHODS.forEach(function (m) {
+      root.appendChild(h("div", { class: "task" }, [
+        h("div", { class: "tx" }, [h("b", { text: m[1] }), h("span", { text: m[2] })]),
+        h("button", { class: "btn", type: "button", text: "Bắt đầu", onclick: function () { mineMethod(m[0]); } })
+      ]));
+    });
+    root.appendChild(h("div", { class: "note", text: "Vì sao hiệu quả: nhớ lại chủ động tốt hơn đọc lại, ôn đúng lúc sắp quên giúp nhớ lâu, và học từ trong câu giúp dùng được khi giao tiếp." }));
+    root.appendChild(h("div", { class: "sec", text: "Từ đã lưu (" + all.length + ")" }));
+    var lbl = { due: "Cần ôn", "new": "Mới", learn: "Đang học", known: "Đã nhớ" }, sure = null;
+    all.forEach(function (w) {
+      var box = h("div", { class: "phrase" });
+      (function paint() {
+        box.textContent = "";
+        box.appendChild(h("div", { class: "ptr" }, [
+          h("span", { class: "tag", text: lbl[mineStat(w)] }),
+          h("button", { class: "toggle", type: "button", text: sure === w ? "Bấm lần nữa để bỏ" : "Bỏ từ", onclick: function () { if (sure === w) { removeMine(w); toast("Đã bỏ khỏi danh sách"); render(); } else { sure = w; paint(); } } })
+        ]));
+        box.appendChild(h("div", { class: "phrase-top" }, [
+          h("div", { style: "min-width:0" }, [h("div", { class: "text", text: w.en + "  " + w.ipa }), h("div", { class: "vi", text: w.vi }), h("div", { class: "exvi", style: "font-size:13px;color:var(--muted)", text: w.ex || "" })]),
+          speakerBtn(w.en, "Nghe từ " + w.en)
+        ]));
+      })();
+      root.appendChild(box);
+    });
+  }
   /* ---------- tab: đọc ---------- */
   var RDK = "tathc-rd-v1", RDS = ld(RDK, { done: {}, kn: {}, sv: {} });
   ["done", "kn", "sv"].forEach(function (k) { if (!RDS[k]) RDS[k] = {}; });
@@ -7813,12 +7987,12 @@ nav { padding-top: 2px; }
   function rdLearn(word, sentence) {
     var info = RGL[word]; if (!info) return;
     var ex = findCard(word);
-    if (ex) { if (!known[ex.en] && !srs[ex.en]) rate(ex, false, true); }
+    if (ex) { if (known[ex.en]) rate(ex, false, true); }
     else {
       var o = { en: word, ipa: "/" + info[0] + "/", pos: info[1], vi: info[2], ex: sentence };
       MYW.push(o); sv(MYK, MYW);
       var w = { topic: "mine", en: o.en, ipa: o.ipa, vi: o.vi, ex: o.ex, exvi: "", pos: o.pos, les: Math.floor((MYW.length - 1) / LSZ) + 1 };
-      WORDS.push(w); TOPICS.mine = "Từ của tôi"; rate(w, false, true);
+      WORDS.push(w); TOPICS.mine = "Từ của tôi";
     }
     RDS.sv[word] = 1; delete RDS.kn[word]; rdSave();
   }
@@ -7852,10 +8026,11 @@ nav { padding-top: 2px; }
     if (RS.id) { RS.fin ? renderReadFin(root, readById(RS.id)) : renderReading(root, readById(RS.id)); return; }
     var nDone = READS.filter(function (r) { return RDS.done[r.id]; }).length, nSv = Object.keys(RDS.sv).length;
     var chips = h("div", { class: "chips", role: "group", "aria-label": "Nhóm bài đọc" });
-    [["comm", "Giao tiếp (20)"], ["site", "Thi công (20)"], ["done", "Đã đọc (" + nDone + ")"]].forEach(function (it) {
+    [["comm", "Giao tiếp (20)"], ["site", "Thi công (20)"], ["words", "Từ mới (" + nSv + ")"], ["done", "Đã đọc (" + nDone + ")"]].forEach(function (it) {
       chips.appendChild(h("button", { class: "chip", type: "button", "aria-pressed": String(RS.filter === it[0]), text: it[1], onclick: function () { RS.filter = it[0]; render(); } }));
     });
     root.appendChild(chips);
+    if (RS.filter === "words") { renderMineWords(root); return; }
     root.appendChild(h("div", { class: "meta" }, [h("span", { text: "Đã đọc " + nDone + "/" + READS.length + " bài" }), h("span", { text: "Từ đã lưu: " + nSv })]));
     var list = READS.filter(function (r) { return RS.filter === "done" ? RDS.done[r.id] : r.g === RS.filter; });
     if (!list.length) root.appendChild(h("div", { class: "note", text: "Chưa có bài nào ở đây." }));
@@ -7929,6 +8104,7 @@ nav { padding-top: 2px; }
       cards.length ? h("button", { class: "btn primary", type: "button", text: "Học " + cards.length + " từ này ngay", onclick: function () { startLearn(cards, "Từ trong bài đọc"); } }) : null
     ]));
     root.appendChild(h("div", { class: "row" }, [
+      h("button", { class: "btn", type: "button", text: "← Danh sách", onclick: function () { RS.id = null; RS.fin = false; render(); goTop(); } }),
       h("button", { class: "btn", type: "button", text: "Xem lại bài", onclick: function () { RS.fin = false; render(); goTop(); } }),
       ni < nxt.length ? h("button", { class: "btn primary", type: "button", text: "Bài tiếp theo →", onclick: function () { RS.id = nxt[ni].id; RS.fin = false; RS.sel = null; RS.vi = false; render(); goTop(); } }) : h("button", { class: "btn", type: "button", text: "Về danh sách", onclick: function () { RS.id = null; RS.fin = false; render(); goTop(); } })
     ]));
@@ -7954,7 +8130,7 @@ nav { padding-top: 2px; }
       Array.prototype.forEach.call(tabs.children, function (b, i) { b.setAttribute("aria-selected", String(S.tab === TABS[i][0])); });
     } else TABS.forEach(function (t) {
       var b = h("button", { class: "tab", type: "button", role: "tab", "aria-selected": String(S.tab === t[0]), onclick: function () {
-        if (S.tab !== t[0]) { lstop(); S.quiz = null; S.idx = 0; S.flipped = false; } S.tab = t[0]; S.confirmReset = false; render(); goTop();
+        if (S.tab !== t[0]) { lstop(); S.quiz = null; S.idx = 0; S.flipped = false; } else if (t[0] === "read" && RS.id) { lstop(); RS.id = null; RS.fin = false; RS.sel = null; } S.tab = t[0]; S.confirmReset = false; render(); goTop();
       } });
       b.innerHTML = t[2];
       b.appendChild(document.createTextNode(t[1]));
