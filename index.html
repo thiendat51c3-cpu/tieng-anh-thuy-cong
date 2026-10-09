@@ -7806,6 +7806,7 @@ nav { padding-top: 2px; }
     m.hidden = !S.detail;
     if (S.ses) renderSession(ov); else if (S.search) renderSearch(ov); else if (S.sheet) renderSheet(ov);
     if (S.detail) renderDetail(m);
+    hsync();
   }
   document.getElementById("bSearch").addEventListener("click", function () { if (S.ses) return; S.search = true; S.sheet = false; renderOv(); });
   document.getElementById("bSet").addEventListener("click", function () { if (S.ses) return; S.sheet = true; S.search = false; renderOv(); });
@@ -8175,7 +8176,67 @@ nav { padding-top: 2px; }
     else if (S.tab === "listen") renderListen(root);
     else if (S.tab === "read") renderRead(root);
     else renderProgress(root);
+    hsync();
   }
+  /* ===== vuốt cạnh trái / nút Back: quay lại từng lớp màn hình ===== */
+  var HN = false, hd = 0, hbusy = false, tabStack = [], lastTab = S.tab, hrest = false;
+  function hLayers() {
+    var L = [];
+    for (var i = 0; i < tabStack.length; i++) L.push("tab");
+    var sub = null;
+    if (S.tab === "read" && RS.id) sub = "read";
+    else if (S.tab === "listen" && (LS.id || LS.pod)) sub = "listen";
+    else if (S.tab === "pron" && S.pr) sub = "pron";
+    else if ((S.tab === "cards" || S.tab === "phr") && S.cv !== "card") sub = "cv";
+    if (sub) L.push(sub);
+    if (S.tab === "read" && RS.sel) L.push("rsel");
+    if (S.search || S.sheet) L.push("ov");
+    if (S.ses) L.push("ses");
+    if (S.detail) L.push("detail");
+    return L;
+  }
+  function hPeel() {
+    var L = hLayers(), top = L[L.length - 1];
+    if (!top) return true;
+    if (top === "detail") S.detail = null;
+    else if (top === "ses") {
+      var s = S.ses;
+      if (s && !s.fin && s.i < s.q.length && !window.confirm("Thoát phiên học? Kết quả đã làm sẽ được lưu.")) return false;
+      sesFinish(); S.ses = null;
+    }
+    else if (top === "ov") { S.search = false; S.sheet = false; }
+    else if (top === "rsel") RS.sel = null;
+    else if (top === "read") { lstop(); RS.id = null; RS.fin = false; RS.sel = null; }
+    else if (top === "listen") { lstop(); LS.id = null; LS.pod = false; }
+    else if (top === "pron") S.pr = null;
+    else if (top === "cv") { S.cv = "card"; S.quiz = null; }
+    else if (top === "tab") { hrest = true; S.tab = tabStack.pop(); lastTab = S.tab; hrest = false; S.idx = 0; S.flipped = false; S.quiz = null; }
+    return true;
+  }
+  function hsync() {
+    if (!HN || hbusy) return;
+    if (S.tab !== lastTab) {
+      if (tabStack.length && tabStack[tabStack.length - 1] === S.tab) tabStack.pop(); else { tabStack.push(lastTab); if (tabStack.length > 8) tabStack.shift(); }
+      lastTab = S.tab;
+    }
+    var d = hLayers().length;
+    try {
+      if (d > hd) { while (hd < d) { hd++; history.pushState({ tathc: hd }, ""); } }
+      else if (d < hd) { var k = hd - d; hd = d; hbusy = true; history.go(-k); setTimeout(function () { hbusy = false; }, 500); }
+    } catch (e) { hd = d; hbusy = false; }
+  }
+  window.addEventListener("popstate", function (e) {
+    if (!HN) return;
+    if (hbusy) { hbusy = false; return; }
+    var nd = (e.state && e.state.tathc) || 0, n = hd - nd;
+    hd = nd;
+    if (n <= 0) { hsync(); return; }
+    while (n-- > 0) { if (!hPeel()) { hd++; try { history.pushState({ tathc: hd }, ""); } catch (x) {} break; } }
+    S.confirmReset = false;
+    renderOv(); render();
+  });
+  try { history.replaceState({ tathc: 0 }, ""); } catch (e) {}
+  HN = true;
   render();
   setTimeout(function () { var n = dueCount(WORDS) + dueCount(PHR); if (n > 0) toast("Hôm nay có " + n + " thẻ cần ôn (mục Tiến độ)"); }, 800);
 })();
